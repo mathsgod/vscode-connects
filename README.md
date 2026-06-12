@@ -15,7 +15,7 @@ An SSH client for VSCode, developer by Hong Kong Programming Society
 
 ## Usage
 
-1. Click the **VSCode Connect** icon in the activity bar.
+1. Click the **VSCode Connects** icon in the activity bar.
 2. Click **Add** to create a host. Fill in name, host, port, username, and optionally a password, then **Save & Connect**.
 3. Double-click any host in the list to open an SSH terminal in the editor.
 4. Type in the search bar to filter hosts; select a host and use **Edit** or **Delete** to manage it.
