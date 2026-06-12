@@ -1,0 +1,123 @@
+{
+  "name": "vscode-connect",
+  "displayName": "VSCode Connect",
+  "description": "An SSH client for VSCode: manage hosts in the sidebar, open SSH sessions as editor tabs, and sync hosts across machines.",
+  "version": "0.0.1",
+  "publisher": "landing",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:cpu-features --external:*.node --format=cjs --platform=node",
+    "watch": "npm run compile -- --watch",
+    "typecheck": "tsc --noEmit",
+    "vscode:prepublish": "npm run compile -- --minify",
+    "package": "vsce package"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vscodeConnect",
+          "title": "VSCode Connect",
+          "icon": "resources/connect.svg"
+        }
+      ]
+    },
+    "views": {
+      "vscodeConnect": [
+        {
+          "type": "webview",
+          "id": "vscodeConnect.hosts",
+          "name": "SSH Hosts",
+          "icon": "resources/connect.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vscodeConnect.addHost",
+        "title": "Add Host",
+        "category": "VSCode Connect",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vscodeConnect.editHost",
+        "title": "Edit Host",
+        "category": "VSCode Connect",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vscodeConnect.deleteHost",
+        "title": "Delete Host",
+        "category": "VSCode Connect",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vscodeConnect.connect",
+        "title": "Connect",
+        "category": "VSCode Connect",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "vscodeConnect.search",
+        "title": "Search Hosts",
+        "category": "VSCode Connect",
+        "icon": "$(search)"
+      },
+      {
+        "command": "vscodeConnect.clearSearch",
+        "title": "Clear Host Search",
+        "category": "VSCode Connect",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vscodeConnect.addHost",
+          "when": "view == vscodeConnect.hosts",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscodeConnect.search",
+          "when": "view == vscodeConnect.hosts",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscodeConnect.clearSearch",
+          "when": "view == vscodeConnect.hosts && vscodeConnect.filtered",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "vscodeConnect.editHost",
+          "when": "false"
+        },
+        {
+          "command": "vscodeConnect.deleteHost",
+          "when": "false"
+        },
+        {
+          "command": "vscodeConnect.connect",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ssh2": "^1.15.1",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

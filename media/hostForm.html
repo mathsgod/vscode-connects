@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    display: flex;
+    justify-content: center;
+    padding-top: 32px;
+  }
+  .card {
+    width: 420px;
+    background: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-editorWidget-border, transparent);
+    border-radius: 6px;
+    padding: 24px 28px;
+  }
+  h2 { margin-top: 0; font-weight: 500; }
+  label { display: block; margin: 14px 0 4px; font-size: 12px; opacity: 0.9; }
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 3px;
+    outline: none;
+  }
+  input:focus { border-color: var(--vscode-focusBorder); }
+  .row { display: flex; gap: 12px; }
+  .row .grow { flex: 1; }
+  .row .port { width: 90px; }
+  .buttons { display: flex; gap: 8px; margin-top: 24px; justify-content: flex-end; }
+  button {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+  }
+  button.primary {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+  }
+  button:hover { opacity: 0.9; }
+  .hint { font-size: 11px; opacity: 0.7; margin-top: 16px; line-height: 1.5; }
+  .error { color: var(--vscode-errorForeground); font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .banner {
+    width: calc(100% + 56px);
+    max-width: none;
+    margin: -24px -28px 16px -28px;
+    border-radius: 6px 6px 0 0;
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="banner" src="{{bannerUri}}" alt="VSCode Connect SSH banner" />
+    <h2>{{title}}</h2>
+    <label for="name">Session name</label>
+    <input id="name" placeholder="My server" value="{{name}}" />
+    <div class="row">
+      <div class="grow">
+        <label for="host">Host name or IP</label>
+        <input id="host" placeholder="example.com" value="{{host}}" />
+      </div>
+      <div class="port">
+        <label for="port">Port</label>
+        <input id="port" type="number" value="{{port}}" />
+      </div>
+    </div>
+    <label for="username">Username</label>
+    <input id="username" placeholder="root" value="{{username}}" />
+    <label for="password">Password (optional)</label>
+    <input id="password" type="password" placeholder="Leave empty to use SSH agent / keys" value="{{password}}" />
+    <div class="error" id="error"></div>
+    <div class="buttons">
+      <button id="cancel">Cancel</button>
+      <button id="save">Save</button>
+      <button id="saveConnect" class="primary">Save &amp; Connect</button>
+    </div>
+    <div class="hint">
+      Hosts are saved to your VSCode profile. With Settings Sync turned on
+      (signed in with GitHub), they are available on all your machines.
+      Passwords are stored as part of the synced data.
+    </div>
+  </div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    const $ = (id) => document.getElementById(id);
+
+    function submit(connectAfterSave) {
+      const name = $('name').value.trim() || $('host').value.trim();
+      const host = $('host').value.trim();
+      const username = $('username').value.trim();
+      if (!host || !username) {
+        $('error').textContent = 'Host and username are required.';
+        return;
+      }
+      vscode.postMessage({
+        type: 'save',
+        connectAfterSave,
+        name,
+        host,
+        port: parseInt($('port').value, 10) || 22,
+        username,
+        password: $('password').value,
+      });
+    }
+
+    $('save').addEventListener('click', () => submit(false));
+    $('saveConnect').addEventListener('click', () => submit(true));
+    $('cancel').addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') submit(false);
+    });
+    $('{{focusId}}').focus();
+  </script>
+</body>
+</html>

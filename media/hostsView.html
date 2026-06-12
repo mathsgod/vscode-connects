@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    padding: 8px 10px;
+    user-select: none;
+  }
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 3px;
+    outline: none;
+  }
+  input:focus { border-color: var(--vscode-focusBorder); }
+  .buttons { display: flex; gap: 6px; margin-top: 8px; }
+  button {
+    flex: 1;
+    padding: 5px 0;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+  }
+  button.primary {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+  }
+  button:hover { opacity: 0.9; }
+  .list { margin: 8px -4px 0; }
+  .item {
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .item:hover { background: var(--vscode-list-hoverBackground); }
+  .item.selected {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+  }
+  .item .detail { font-size: 11px; opacity: 0.75; }
+  .empty {
+    margin-top: 14px;
+    font-size: 12px;
+    opacity: 0.7;
+    text-align: center;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+  <input id="search" type="text" placeholder="Search hosts..." value="{{filter}}" />
+  <div class="buttons">
+    <button id="add" class="primary">Add</button>
+    <button id="edit">Edit</button>
+    <button id="delete">Delete</button>
+  </div>
+  <div class="list" id="list"></div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    const search = document.getElementById('search');
+    const list = document.getElementById('list');
+    let hosts = [];
+    let selectedId = null;
+
+    function render() {
+      list.textContent = '';
+      if (hosts.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = search.value
+          ? 'No hosts match your search.'
+          : 'No SSH hosts yet. Click Add to create one. Double-click a host to connect.';
+        list.appendChild(empty);
+        return;
+      }
+      for (const h of hosts) {
+        const item = document.createElement('div');
+        item.className = 'item' + (h.id === selectedId ? ' selected' : '');
+        const name = document.createElement('div');
+        name.textContent = h.name;
+        const detail = document.createElement('div');
+        detail.className = 'detail';
+        detail.textContent = h.detail;
+        item.append(name, detail);
+        item.addEventListener('click', () => {
+          selectedId = h.id;
+          render();
+        });
+        item.addEventListener('dblclick', () =>
+          vscode.postMessage({ type: 'connect', id: h.id })
+        );
+        list.appendChild(item);
+      }
+    }
+
+    search.addEventListener('input', () =>
+      vscode.postMessage({ type: 'search', value: search.value })
+    );
+    document.getElementById('add').addEventListener('click', () =>
+      vscode.postMessage({ type: 'add' })
+    );
+    document.getElementById('edit').addEventListener('click', () =>
+      vscode.postMessage({ type: 'edit', id: selectedId })
+    );
+    document.getElementById('delete').addEventListener('click', () =>
+      vscode.postMessage({ type: 'delete', id: selectedId })
+    );
+
+    window.addEventListener('message', (e) => {
+      const msg = e.data;
+      if (msg.type === 'hosts') {
+        hosts = msg.hosts;
+        if (selectedId && !hosts.some((h) => h.id === selectedId)) {
+          selectedId = null;
+        }
+        render();
+      } else if (msg.type === 'setSearch') {
+        search.value = msg.value;
+      }
+    });
+
+    vscode.postMessage({ type: 'ready' });
+  </script>
+</body>
+</html>

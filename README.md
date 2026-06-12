@@ -1,0 +1,39 @@
+# VSCode Connect
+
+An SSH client for VSCode, developer by Hong Kong Programming Society
+
+![](resources/banner.png)
+
+## Features
+
+- **SSH Hosts sidebar** — a "VSCode Connect" icon in the activity bar opens a panel with a search bar, Add / Edit / Delete buttons, and your saved hosts.
+- **Saved credentials** — each host stores its address, port, username, and (optionally) password in a configuration form.
+- **Double-click to connect** — double-click a host to open an interactive SSH session as a tab in the editor area. The saved password is supplied automatically (password and keyboard-interactive auth are both supported; SSH agent keys are used when no password is saved).
+- **Sync across machines** — hosts are saved via VSCode's `globalState` with Settings Sync enabled, so when you're signed in to VSCode (e.g. with GitHub) and Settings Sync is on, your hosts appear on every machine.
+
+> **Security note:** passwords are stored in plain form inside the synced extension state so they can roam between machines. If you don't want that, leave the password field empty and use SSH keys / agent auth instead.
+
+## Usage
+
+1. Click the **VSCode Connect** icon in the activity bar.
+2. Click **Add** to create a host. Fill in name, host, port, username, and optionally a password, then **Save & Connect**.
+3. Double-click any host in the list to open an SSH terminal in the editor.
+4. Type in the search bar to filter hosts; select a host and use **Edit** or **Delete** to manage it.
+
+## Development
+
+```bash
+npm install
+npm run compile
+```
+
+Then press `F5` in VSCode to launch an Extension Development Host.
+
+## Packaging
+
+```bash
+npm install -g @vscode/vsce
+vsce package
+```
+
+Install the generated `.vsix` via "Extensions: Install from VSIX...".
