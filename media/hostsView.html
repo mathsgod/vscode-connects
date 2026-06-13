@@ -78,7 +78,7 @@
         empty.className = 'empty';
         empty.textContent = search.value
           ? 'No hosts match your search.'
-          : 'No SSH hosts yet. Click Add to create one. Double-click a host to connect.';
+          : 'No SSH hosts yet. Click Add to create one.\nHosts sync across machines when you are signed in and Settings Sync is enabled (select "Extensions").';
         list.appendChild(empty);
         return;
       }
