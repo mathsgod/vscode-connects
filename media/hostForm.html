@@ -19,7 +19,7 @@
   }
   h2 { margin-top: 0; font-weight: 500; }
   label { display: block; margin: 14px 0 4px; font-size: 12px; opacity: 0.9; }
-  input {
+  input:not([type="checkbox"]) {
     width: 100%;
     box-sizing: border-box;
     padding: 6px 8px;
@@ -30,6 +30,23 @@
     outline: none;
   }
   input:focus { border-color: var(--vscode-focusBorder); }
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    margin: 0;
+    flex: 0 0 auto;
+    vertical-align: middle;
+  }
+
+  .checkbox-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0 4px;
+    font-size: 12px;
+    width: auto;
+  }
   .row { display: flex; gap: 12px; }
   .row .grow { flex: 1; }
   .row .port { width: 90px; }
@@ -78,6 +95,23 @@
     <input id="username" placeholder="root" value="{{username}}" />
     <label for="password">Password (optional)</label>
     <input id="password" type="password" placeholder="Leave empty to use SSH agent / keys" value="{{password}}" />
+
+    <label for="privateKey" style="margin-top:12px;">Private key / certificate (PEM, optional)</label>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button type="button" id="pickKey">Choose key file…</button>
+      <span id="keyName" style="font-size:12px; opacity:0.8; flex:1; word-break:break-all;"></span>
+      <button type="button" id="clearKey" style="padding:2px 8px; font-size:11px;">Remove</button>
+    </div>
+    <input id="privateKey" type="hidden" />
+    <input id="keyFile" type="file" accept=".pem,.key,.ppk,text/plain,application/x-pem-file" style="display:none" />
+
+    <label for="passphrase">Key passphrase (if the private key is encrypted)</label>
+    <input id="passphrase" type="password" placeholder="Leave empty if key is not encrypted" value="{{passphrase}}" />
+
+    <label class="checkbox-row">
+      <input id="keepAlive" type="checkbox" {{keepAliveChecked}} /> Keep alive (prevent idle disconnects)
+    </label>
+
     <div class="error" id="error"></div>
     <div class="buttons">
       <button id="cancel">Cancel</button>
@@ -87,12 +121,58 @@
     <div class="hint">
       Hosts are saved to your VS Code profile. To see them on other computers:
       sign in with GitHub (or Microsoft) and turn on Settings Sync, then select
-      "Extensions" (or "All"). Passwords are stored as part of the synced data.
+      "Extensions" (or "All"). Passwords and private keys are stored as part of the synced data.
     </div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
     const $ = (id) => document.getElementById(id);
+
+    // Private key file handling
+    const pickBtn = $('pickKey');
+    const clearBtn = $('clearKey');
+    const keyFile = $('keyFile');
+    const keyName = $('keyName');
+    const pkHidden = $('privateKey');
+
+    const HAS_EXISTING_KEY = '{{hasPrivateKey}}' === 'true';
+
+    function setKeyIndicator(text, isExistingMarker = false) {
+      keyName.textContent = text || '';
+      clearBtn.style.display = (text || isExistingMarker) ? '' : 'none';
+    }
+
+    // If editing and a key already exists, show a placeholder (content is kept server-side)
+    // Use a marker so the backend knows to keep the existing key unless user replaces or removes.
+    if (pkHidden && HAS_EXISTING_KEY) {
+      pkHidden.value = '__EXISTING__';
+      setKeyIndicator('(key/certificate saved — choose a new file to replace)', true);
+    } else {
+      clearBtn.style.display = 'none';
+    }
+
+    pickBtn.addEventListener('click', () => keyFile.click());
+
+    keyFile.addEventListener('change', async () => {
+      const f = keyFile.files && keyFile.files[0];
+      if (!f) return;
+      const text = await f.text();
+      pkHidden.value = text;
+      setKeyIndicator(f.name + ' (' + text.length + ' bytes)');
+      // When user picks a new key, clear any previously stored passphrase in the form
+      // so they can enter a fresh one if needed.
+      const pp = $('passphrase');
+      if (pp) pp.value = '';
+    });
+
+    clearBtn.addEventListener('click', () => {
+      pkHidden.value = '';
+      keyFile.value = '';
+      setKeyIndicator('');
+      // Also clear passphrase when removing the key
+      const pp = $('passphrase');
+      if (pp) pp.value = '';
+    });
 
     function submit(connectAfterSave) {
       const name = $('name').value.trim() || $('host').value.trim();
@@ -110,6 +190,9 @@
         port: parseInt($('port').value, 10) || 22,
         username,
         password: $('password').value,
+        privateKey: $('privateKey').value || undefined,
+        passphrase: $('passphrase').value || undefined,
+        keepAlive: $('keepAlive').checked,
       });
     }
 

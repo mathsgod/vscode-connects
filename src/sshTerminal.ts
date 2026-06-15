@@ -6,11 +6,30 @@ import { HostEntry } from './storage';
  * Opens an interactive SSH session as a terminal tab in the editor area.
  * Uses the ssh2 library so the stored password can be supplied automatically
  * (a plain `ssh` process would prompt for it interactively).
+ *
+ * If the host has no stored password and no private key, the user will be
+ * prompted for a password at connect time (session-only; not saved).
  */
-export function openSshTerminal(entry: HostEntry): void {
-  const pty = new SshPseudoterminal(entry);
+export async function openSshTerminal(entry: HostEntry): Promise<void> {
+  let effectiveEntry = entry;
+
+  // Prompt for password at connect time if nothing is configured for auth.
+  if (!entry.password && !entry.privateKey) {
+    const pwd = await vscode.window.showInputBox({
+      prompt: `Enter password for ${entry.username}@${entry.host} (leave empty to try SSH agent / keys)`,
+      password: true,
+      ignoreFocusOut: true,
+      placeHolder: 'Password (optional for this session)',
+    });
+    // If user cancels (undefined), proceed without a password (agent/keys may still work).
+    if (pwd !== undefined) {
+      effectiveEntry = { ...entry, password: pwd || undefined };
+    }
+  }
+
+  const pty = new SshPseudoterminal(effectiveEntry);
   const terminal = vscode.window.createTerminal({
-    name: `SSH: ${entry.name}`,
+    name: `SSH: ${effectiveEntry.name}`,
     pty,
     location: vscode.TerminalLocation.Editor,
     iconPath: new vscode.ThemeIcon('remote'),
@@ -78,7 +97,7 @@ class SshPseudoterminal implements vscode.Pseudoterminal {
     );
 
     try {
-      client.connect({
+      const connectOpts: any = {
         host: entry.host,
         port: entry.port,
         username: entry.username,
@@ -86,8 +105,23 @@ class SshPseudoterminal implements vscode.Pseudoterminal {
         tryKeyboard: true,
         agent: process.env.SSH_AUTH_SOCK,
         readyTimeout: 20000,
-        keepaliveInterval: 15000,
-      });
+      };
+
+      // Enable keep-alive if requested for this host
+      if (entry.keepAlive) {
+        connectOpts.keepaliveInterval = 15000;
+        connectOpts.keepaliveCountMax = 3;
+      }
+
+      // Private key / certificate support
+      if (entry.privateKey) {
+        connectOpts.privateKey = entry.privateKey;
+        if (entry.passphrase) {
+          connectOpts.passphrase = entry.passphrase;
+        }
+      }
+
+      client.connect(connectOpts);
     } catch (err) {
       this.fail(`Connection failed: ${err instanceof Error ? err.message : String(err)}`);
     }

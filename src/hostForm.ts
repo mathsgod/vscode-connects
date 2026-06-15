@@ -28,6 +28,24 @@ export function openHostForm(
       return;
     }
     if (msg.type === 'save') {
+      const rawPk = typeof msg.privateKey === 'string' ? msg.privateKey : undefined;
+      let privateKey: string | undefined;
+      let passphrase: string | undefined;
+
+      if (rawPk === '__EXISTING__') {
+        // User did not change the key on edit; preserve existing values
+        privateKey = existing?.privateKey;
+        passphrase = msg.passphrase ? String(msg.passphrase) : existing?.passphrase;
+      } else if (rawPk && rawPk.trim().length > 0) {
+        // New key content provided (uploaded/replaced)
+        privateKey = rawPk;
+        passphrase = msg.passphrase ? String(msg.passphrase) : undefined;
+      } else {
+        // Cleared or never had a key
+        privateKey = undefined;
+        passphrase = undefined;
+      }
+
       const entry: HostEntry = {
         id: existing?.id ?? crypto.randomUUID(),
         name: String(msg.name).trim(),
@@ -35,6 +53,9 @@ export function openHostForm(
         port: Number(msg.port) || 22,
         username: String(msg.username).trim(),
         password: msg.password ? String(msg.password) : undefined,
+        privateKey,
+        passphrase,
+        keepAlive: !!msg.keepAlive,
       };
       await store.upsert(entry);
       panel.dispose();
@@ -67,6 +88,9 @@ function renderHtml(
   );
 
   const values: Record<string, string> = {
+    passphrase: esc(existing?.passphrase),
+    keepAliveChecked: existing?.keepAlive ? 'checked' : '',
+    hasPrivateKey: existing?.privateKey ? 'true' : '',
     bannerUri: bannerUri.toString(),
     title: existing ? 'Edit SSH Host' : 'New SSH Host',
     name: esc(existing?.name),

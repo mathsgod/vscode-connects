@@ -7,6 +7,12 @@ export interface HostEntry {
   port: number;
   username: string;
   password?: string;
+  /** PEM-encoded private key content (for key-based auth). */
+  privateKey?: string;
+  /** Passphrase to decrypt the private key (if the key is encrypted). */
+  passphrase?: string;
+  /** If true, the SSH client will send keep-alive packets to prevent idle timeouts. */
+  keepAlive?: boolean;
 }
 
 const HOSTS_KEY = 'vscodeConnect.hosts';
