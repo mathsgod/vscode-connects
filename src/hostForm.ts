@@ -51,7 +51,9 @@ export function openHostForm(
         name: String(msg.name).trim(),
         host: String(msg.host).trim(),
         port: Number(msg.port) || 22,
-        username: String(msg.username).trim(),
+        // Username is optional; when omitted the terminal will use the system `ssh`
+        // client which can prompt interactively for username/password inside the PTY.
+        username: msg.username ? String(msg.username).trim() || undefined : undefined,
         password: msg.password ? String(msg.password) : undefined,
         privateKey,
         passphrase,
@@ -85,7 +87,7 @@ function renderHtml(
   const template = fs.readFileSync(htmlPath, 'utf8');
 
   const bannerUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(extensionUri, 'resources', 'banner.png')
+    vscode.Uri.joinPath(extensionUri, 'resources', 'banner2.png')
   );
 
   const values: Record<string, string> = {

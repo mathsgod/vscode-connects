@@ -6,7 +6,8 @@ export interface HostEntry {
   name: string;
   host: string;
   port: number;
-  username: string;
+  /** Optional; when omitted the system `ssh` client will prompt inside the terminal. */
+  username?: string;
   password?: string;
   /** PEM-encoded private key content (for key-based auth). */
   privateKey?: string;
@@ -108,7 +109,7 @@ export class HostStore {
    * Imports hosts from a JSON string (array of host objects).
    * - If an entry has an id that already exists, it updates that host.
    * - Otherwise a new id is generated (or the provided id is used if present).
-   * - Missing required fields (name, host, username) cause the entry to be skipped.
+   * - Missing required fields (name, host) cause the entry to be skipped. Username is optional.
    * Returns counts and any non-fatal errors encountered.
    */
   async importFromJson(json: string): Promise<{ added: number; updated: number; errors: string[] }> {
@@ -136,9 +137,9 @@ export class HostStore {
       }
       const name = String(raw.name || '').trim();
       const host = String(raw.host || '').trim();
-      const username = String(raw.username || '').trim();
-      if (!name || !host || !username) {
-        errors.push('Skipped entry missing required name/host/username');
+      const username = raw.username != null ? String(raw.username).trim() || undefined : undefined;
+      if (!name || !host) {
+        errors.push('Skipped entry missing required name/host');
         continue;
       }
 

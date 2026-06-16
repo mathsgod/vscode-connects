@@ -4,35 +4,58 @@ import { HostEntry } from './storage';
 
 /**
  * Opens an interactive SSH session as a terminal tab in the editor area.
- * Uses the ssh2 library so the stored password can be supplied automatically
- * (a plain `ssh` process would prompt for it interactively).
  *
- * If the host has no stored password and no private key, the user will be
- * prompted for a password at connect time (session-only; not saved).
+ * Strategy:
+ * - If a username AND some auth material (password or privateKey) are present,
+ *   we use the ssh2 library with the stored credentials for a silent connect
+ *   (no extra prompts).
+ * - Otherwise (no username, or username but no stored password/key), we spawn
+ *   the real system `ssh` client in the VS Code terminal. This lets the native
+ *   ssh handle interactive prompts for username, password, key passphrase,
+ *   host-key verification, etc. directly inside the terminal, instead of using
+ *   VS Code input popups.
+ *
+ * The legacy SshPseudoterminal (ssh2) path is only used for the "silent" case.
  */
 export async function openSshTerminal(entry: HostEntry): Promise<void> {
-  let effectiveEntry = entry;
+  const hasUsername = !!entry.username;
+  const hasAuth = !!entry.password || !!entry.privateKey;
 
-  // Prompt for password at connect time if nothing is configured for auth.
-  if (!entry.password && !entry.privateKey) {
-    const pwd = await vscode.window.showInputBox({
-      prompt: `Enter password for ${entry.username}@${entry.host} (leave empty to try SSH agent / keys)`,
-      password: true,
-      ignoreFocusOut: true,
-      placeHolder: 'Password (optional for this session)',
+  // Fast path: we have enough to authenticate without interaction.
+  if (hasUsername && hasAuth) {
+    const pty = new SshPseudoterminal(entry);
+    const terminal = vscode.window.createTerminal({
+      name: `SSH: ${entry.name}`,
+      pty,
+      location: vscode.TerminalLocation.Editor,
+      iconPath: new vscode.ThemeIcon('remote'),
     });
-    // If user cancels (undefined), proceed without a password (agent/keys may still work).
-    if (pwd !== undefined) {
-      effectiveEntry = { ...entry, password: pwd || undefined };
-    }
+    terminal.show();
+    return;
   }
 
-  const pty = new SshPseudoterminal(effectiveEntry);
+  // Interactive path: delegate to the real `ssh` binary so it can prompt
+  // inside the terminal (username if missing, password, etc.).
+  const args: string[] = [];
+  if (entry.port && entry.port !== 22) {
+    args.push('-p', String(entry.port));
+  }
+  if (entry.keepAlive) {
+    // Mirror the keep-alive behavior used by the ssh2 path.
+    args.push('-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3');
+  }
+  if (hasUsername) {
+    args.push(`${entry.username}@${entry.host}`);
+  } else {
+    args.push(entry.host);
+  }
+
   const terminal = vscode.window.createTerminal({
-    name: `SSH: ${effectiveEntry.name}`,
-    pty,
+    name: `SSH: ${entry.name}`,
     location: vscode.TerminalLocation.Editor,
     iconPath: new vscode.ThemeIcon('remote'),
+    shellPath: 'ssh',
+    shellArgs: args,
   });
   terminal.show();
 }
@@ -54,7 +77,8 @@ class SshPseudoterminal implements vscode.Pseudoterminal {
       this.dimensions = initialDimensions;
     }
     const { entry } = this;
-    this.print(`Connecting to ${entry.username}@${entry.host}:${entry.port} ...\r\n`);
+    const who = entry.username ? `${entry.username}@` : '';
+    this.print(`Connecting to ${who}${entry.host}:${entry.port} ...\r\n`);
 
     const client = new Client();
     this.client = client;

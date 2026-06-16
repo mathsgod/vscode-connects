@@ -94,12 +94,13 @@ export class HostsViewProvider implements vscode.WebviewViewProvider {
     const needle = this.filter.trim().toLowerCase();
     let hosts = this.store.getAll();
     if (needle) {
-      hosts = hosts.filter((h) =>
-        [h.name, h.host, h.username, `${h.username}@${h.host}`]
+      hosts = hosts.filter((h) => {
+        const u = h.username || '';
+        return [h.name, h.host, u, u ? `${u}@${h.host}` : h.host]
           .join(' ')
           .toLowerCase()
-          .includes(needle)
-      );
+          .includes(needle);
+      });
     }
     return hosts;
   }
@@ -113,7 +114,7 @@ export class HostsViewProvider implements vscode.WebviewViewProvider {
       hosts: hosts.map((h) => ({
         id: h.id,
         name: h.name,
-        detail: `${h.username}@${h.host}:${h.port}`,
+        detail: h.username ? `${h.username}@${h.host}:${h.port}` : `${h.host}:${h.port}`,
         group: h.group || '',
       })),
       collapsedGroups: collapsed,
