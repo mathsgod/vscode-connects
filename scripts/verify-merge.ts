@@ -123,7 +123,18 @@ function importFromJsonInto(
     };
     const prev = byId.get(id);
     const prevTs = prev?.updatedAt ?? 0;
-    if (tombs[id]) delete tombs[id];
+    const tombTs = tombs[id] ?? 0;
+
+    // A tombstone wins over any import whose timestamp is older or equal.
+    // Only accept (and clear tomb) when the import is strictly newer than the tombstone.
+    if (ts <= tombTs) {
+      continue;
+    }
+
+    if (tombs[id]) {
+      delete tombs[id];
+    }
+
     if (prev) {
       if (ts >= prevTs) { byId.set(id, entry); updated++; }
     } else {

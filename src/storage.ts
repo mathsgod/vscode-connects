@@ -365,8 +365,16 @@ export class HostStore {
 
       const prev = byId.get(id);
       const prevTs = prev?.updatedAt ?? 0;
+      const tombTs = tombstones[id] ?? 0;
 
-      // Clear tombstone for this id (import is an explicit keep/update)
+      // A tombstone wins over any import whose timestamp is older or equal.
+      // Only accept (and clear tomb) when the import is strictly newer than the tombstone.
+      if (ts <= tombTs) {
+        // Keep the tombstone; ignore this stale import for this id.
+        continue;
+      }
+
+      // Import is newer than any tombstone — clear tombstone (if present) and proceed.
       if (tombstones[id]) {
         tombstones = { ...tombstones };
         delete tombstones[id];
