@@ -59,6 +59,9 @@ export function openHostForm(
         passphrase,
         keepAlive: !!msg.keepAlive,
         group: msg.group ? String(msg.group).trim() || undefined : undefined,
+        // Timestamp is set here for symmetry with import path; store.upsert will
+        // always overwrite with a fresh value (write time) for local edits.
+        updatedAt: Date.now(),
       };
       await store.upsert(entry);
       panel.dispose();
