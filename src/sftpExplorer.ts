@@ -487,19 +487,14 @@ export function openSftpExplorer(extensionUri: vscode.Uri, entry: HostEntry, con
       }
       task.status = 'completed';
       task.progress = 100;
-      // Refresh side if still viewing the affected area
+      // Refresh side if still viewing the affected area.
+      // Always refresh the target side after a transfer completes so the table updates (esp. after uploads).
       try {
-        if (task.direction === 'upload' && currentRemotePath) {
-          const targetDir = path.dirname(task.dst).replace(/\\/g, '/');
-          if (currentRemotePath === '.' || currentRemotePath === '~' || targetDir.endsWith(currentRemotePath.replace(/^\.?\/?/, '')) || currentRemotePath.replace(/\/$/, '') === targetDir.replace(/\/$/, '')) {
-            await listRemote(currentRemotePath);
-          }
+        if (task.direction === 'upload' && currentRemotePath != null) {
+          await listRemote(currentRemotePath);
         }
-        if (task.direction === 'download' && currentLocalPath) {
-          const targetDir = path.dirname(task.dst);
-          if (currentLocalPath === targetDir || currentLocalPath === path.dirname(targetDir)) {
-            await listLocal(currentLocalPath);
-          }
+        if (task.direction === 'download' && currentLocalPath != null) {
+          await listLocal(currentLocalPath);
         }
       } catch {}
     } catch (e: any) {
@@ -681,7 +676,18 @@ export function openSftpExplorer(extensionUri: vscode.Uri, entry: HostEntry, con
         break;
 
       case 'download':
-        if (msg.remotePath) {
+        if (Array.isArray(msg.items) && msg.items.length) {
+          for (const it of msg.items) {
+            if (it && it.path) {
+              if (it.isDir) {
+                await enqueueDownloadFolder(it.path);
+              } else {
+                await downloadWithConfirm(it.path);
+              }
+            }
+          }
+        } else if (msg.remotePath) {
+          // backward compat single
           if (msg.isDir) {
             await enqueueDownloadFolder(msg.remotePath);
           } else {
@@ -691,7 +697,18 @@ export function openSftpExplorer(extensionUri: vscode.Uri, entry: HostEntry, con
         break;
 
       case 'upload':
-        if (msg.localPath) {
+        if (Array.isArray(msg.items) && msg.items.length) {
+          for (const it of msg.items) {
+            if (it && it.path) {
+              if (it.isDir) {
+                await enqueueUploadFolder(it.path);
+              } else {
+                await uploadWithConfirm(it.path);
+              }
+            }
+          }
+        } else if (msg.localPath) {
+          // backward compat single
           if (msg.isDir) {
             await enqueueUploadFolder(msg.localPath);
           } else {
@@ -774,28 +791,39 @@ export function openSftpExplorer(extensionUri: vscode.Uri, entry: HostEntry, con
   });
 
   async function handleRequestDeleteRemote(msg: any): Promise<void> {
-    if (!msg.path) return;
-    const name = msg.name || path.basename(String(msg.path));
+    const items: Array<{ path: string; name?: string; isDir?: boolean }> = Array.isArray(msg.items) && msg.items.length
+      ? msg.items
+      : (msg.path ? [{ path: msg.path, name: msg.name, isDir: msg.isDir }] : []);
+    if (!items.length) return;
+    const count = items.length;
     const choice = await vscode.window.showWarningMessage(
-      `Delete remote ${msg.isDir ? 'folder' : 'file'} "${name}"?`,
+      `Delete ${count} remote item${count > 1 ? 's' : ''}?`,
       { modal: true },
       'Delete'
     );
-    if (choice === 'Delete') {
-      await deleteRemote(msg.path, !!msg.isDir);
+    if (choice !== 'Delete') return;
+    for (const it of items) {
+      if (!it || !it.path) continue;
+      await deleteRemote(it.path, !!it.isDir);
     }
   }
 
   async function handleRequestDeleteLocal(msg: any): Promise<void> {
-    if (!msg.name) return;
-    const full = path.join(currentLocalPath, msg.name);
+    const items: Array<{ name: string; isDir?: boolean }> = Array.isArray(msg.items) && msg.items.length
+      ? msg.items
+      : (msg.name ? [{ name: msg.name, isDir: msg.isDir }] : []);
+    if (!items.length) return;
+    const count = items.length;
     const choice = await vscode.window.showWarningMessage(
-      `Delete local ${msg.isDir ? 'folder' : 'file'} "${msg.name}"? This cannot be undone.`,
+      `Delete ${count} local item${count > 1 ? 's' : ''}? This cannot be undone.`,
       { modal: true },
       'Delete'
     );
-    if (choice === 'Delete') {
-      await deleteLocal(full, !!msg.isDir);
+    if (choice !== 'Delete') return;
+    for (const it of items) {
+      if (!it || !it.name) continue;
+      const full = path.join(currentLocalPath, it.name);
+      await deleteLocal(full, !!it.isDir);
     }
   }
 }

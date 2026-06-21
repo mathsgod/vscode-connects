@@ -155,6 +155,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+	height: 15px;
   }
   .empty {
     padding: 20px;
@@ -191,6 +192,7 @@
     font-size: 11px;
     flex: 0 0 auto;
     min-height: 0;
+    max-height: 105px;
   }
   .queue-header {
     display: flex;
@@ -210,7 +212,7 @@
   .queue-table-wrap {
     flex: 1 1 auto;
     overflow: auto;
-    max-height: 65px;
+    max-height: 55px;
     border-top: 1px solid rgba(128,128,128,0.15);
   }
   .queue table {
@@ -334,8 +336,12 @@
     let remoteFiles = [];
     let localPath = '';
     let remotePath = '';
-    let selectedLocal = null;
-    let selectedRemote = null;
+    let selectedLocal = [];
+    let selectedRemote = [];
+    let anchorLocal = null;
+    let anchorRemote = null;
+    let upLocal = false;
+    let upRemote = false;
 
     let activePane = 'remote'; // 'local' | 'remote' - which list receives type-to-jump
     let jumpBuffer = '';
@@ -386,11 +392,32 @@
       const canGoUp = !!(localPath && localPath !== '/' && localPath !== '.' && localPath !== '');
       if (canGoUp) {
         const tr = document.createElement('tr');
-        if (selectedLocal === '..') tr.classList.add('selected');
+        if (upLocal) tr.classList.add('selected');
         tr.innerHTML = `<td class="name"><span class="icon">📁</span> <span>..</span></td><td></td><td></td>`;
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (e) => {
           activePane = 'local';
-          selectedLocal = '..';
+          const isMod = e.metaKey || e.ctrlKey;
+          const isShift = e.shiftKey;
+          if (isShift && anchorLocal) {
+            // range from anchor to .. is not meaningful; treat as single
+            selectedLocal = ['..'];
+            upLocal = true;
+            anchorLocal = '..';
+          } else if (isMod) {
+            // toggle .. : if .. selected, clear; else select only ..
+            if (upLocal) {
+              selectedLocal = [];
+              upLocal = false;
+            } else {
+              selectedLocal = ['..'];
+              upLocal = true;
+              anchorLocal = '..';
+            }
+          } else {
+            selectedLocal = ['..'];
+            upLocal = true;
+            anchorLocal = '..';
+          }
           renderLocal();
         });
         tr.addEventListener('dblclick', () => {
@@ -407,7 +434,7 @@
       }
       for (const f of localFiles) {
         const tr = document.createElement('tr');
-        if (f.name === selectedLocal) tr.classList.add('selected');
+        if (selectedLocal.includes(f.name)) tr.classList.add('selected');
 
         const icon = f.isDir ? '📁' : '📄';
         tr.innerHTML = `
@@ -416,9 +443,35 @@
           <td>${formatDate(f.mtime)}</td>
         `;
 
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (e) => {
           activePane = 'local';
-          selectedLocal = f.name;
+          const isMod = e.metaKey || e.ctrlKey;
+          const isShift = e.shiftKey;
+          if (isShift && anchorLocal && anchorLocal !== '..') {
+            const idxAnchor = localFiles.findIndex(x => x.name === anchorLocal);
+            const idxCur = localFiles.findIndex(x => x.name === f.name);
+            if (idxAnchor >= 0 && idxCur >= 0) {
+              const [a, b] = idxAnchor <= idxCur ? [idxAnchor, idxCur] : [idxCur, idxAnchor];
+              const range = localFiles.slice(a, b + 1).map(x => x.name);
+              // merge with existing but drop '..'
+              const merged = Array.from(new Set([...selectedLocal.filter(n => n !== '..'), ...range]));
+              selectedLocal = merged;
+              upLocal = false;
+            }
+          } else if (isMod) {
+            // toggle this item; drop '..' if present
+            upLocal = false;
+            if (selectedLocal.includes(f.name)) {
+              selectedLocal = selectedLocal.filter(n => n !== f.name);
+            } else {
+              selectedLocal = [...selectedLocal.filter(n => n !== '..'), f.name];
+              anchorLocal = f.name;
+            }
+          } else {
+            selectedLocal = [f.name];
+            upLocal = false;
+            anchorLocal = f.name;
+          }
           renderLocal();
         });
         tr.addEventListener('dblclick', () => {
@@ -437,11 +490,30 @@
       const canGoUp = !!(remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '' && remotePath !== '~');
       if (canGoUp) {
         const tr = document.createElement('tr');
-        if (selectedRemote === '..') tr.classList.add('selected');
+        if (upRemote) tr.classList.add('selected');
         tr.innerHTML = `<td class="name"><span class="icon">📁</span> <span>..</span></td><td></td><td></td><td></td>`;
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (e) => {
           activePane = 'remote';
-          selectedRemote = '..';
+          const isMod = e.metaKey || e.ctrlKey;
+          const isShift = e.shiftKey;
+          if (isShift && anchorRemote) {
+            selectedRemote = ['..'];
+            upRemote = true;
+            anchorRemote = '..';
+          } else if (isMod) {
+            if (upRemote) {
+              selectedRemote = [];
+              upRemote = false;
+            } else {
+              selectedRemote = ['..'];
+              upRemote = true;
+              anchorRemote = '..';
+            }
+          } else {
+            selectedRemote = ['..'];
+            upRemote = true;
+            anchorRemote = '..';
+          }
           renderRemote();
         });
         tr.addEventListener('dblclick', () => {
@@ -458,7 +530,7 @@
       }
       for (const f of remoteFiles) {
         const tr = document.createElement('tr');
-        if (f.name === selectedRemote) tr.classList.add('selected');
+        if (selectedRemote.includes(f.name)) tr.classList.add('selected');
 
         const icon = f.isDir ? '📁' : '📄';
         tr.innerHTML = `
@@ -468,9 +540,33 @@
           <td><span style="font-family: monospace; font-size: 11px;">${formatPerms(f.mode)}</span></td>
         `;
 
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (e) => {
           activePane = 'remote';
-          selectedRemote = f.name;
+          const isMod = e.metaKey || e.ctrlKey;
+          const isShift = e.shiftKey;
+          if (isShift && anchorRemote && anchorRemote !== '..') {
+            const idxAnchor = remoteFiles.findIndex(x => x.name === anchorRemote);
+            const idxCur = remoteFiles.findIndex(x => x.name === f.name);
+            if (idxAnchor >= 0 && idxCur >= 0) {
+              const [a, b] = idxAnchor <= idxCur ? [idxAnchor, idxCur] : [idxCur, idxAnchor];
+              const range = remoteFiles.slice(a, b + 1).map(x => x.name);
+              const merged = Array.from(new Set([...selectedRemote.filter(n => n !== '..'), ...range]));
+              selectedRemote = merged;
+              upRemote = false;
+            }
+          } else if (isMod) {
+            upRemote = false;
+            if (selectedRemote.includes(f.name)) {
+              selectedRemote = selectedRemote.filter(n => n !== f.name);
+            } else {
+              selectedRemote = [...selectedRemote.filter(n => n !== '..'), f.name];
+              anchorRemote = f.name;
+            }
+          } else {
+            selectedRemote = [f.name];
+            upRemote = false;
+            anchorRemote = f.name;
+          }
           renderRemote();
         });
         tr.addEventListener('dblclick', () => {
@@ -532,22 +628,30 @@
       vscode.postMessage({ type: 'refresh' });
     });
     document.getElementById('btnUpload').addEventListener('click', () => {
-      if (!selectedLocal || selectedLocal === '..') {
-        setFooter('Select a local file first');
+      const items = (selectedLocal || []).filter(n => n !== '..');
+      if (!items.length) {
+        setFooter('Select local item(s) to upload');
         return;
       }
-      const f = localFiles.find(x => x.name === selectedLocal);
-      const fullLocal = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + selectedLocal;
-      vscode.postMessage({ type: 'upload', localPath: fullLocal, isDir: !!(f && f.isDir) });
+      const payload = items.map(name => {
+        const f = localFiles.find(x => x.name === name);
+        const full = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + name;
+        return { path: full, isDir: !!(f && f.isDir) };
+      });
+      vscode.postMessage({ type: 'upload', items: payload });
     });
     document.getElementById('btnDownload').addEventListener('click', () => {
-      if (!selectedRemote || selectedRemote === '..') {
-        setFooter('Select a remote file first');
+      const items = (selectedRemote || []).filter(n => n !== '..');
+      if (!items.length) {
+        setFooter('Select remote item(s) to download');
         return;
       }
-      const f = remoteFiles.find(x => x.name === selectedRemote);
-      const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
-      vscode.postMessage({ type: 'download', remotePath: remoteFull, isDir: !!(f && f.isDir) });
+      const payload = items.map(name => {
+        const f = remoteFiles.find(x => x.name === name);
+        const full = (remotePath === '.' || remotePath === '~' || !remotePath) ? name : remotePath.replace(/\/$/, '') + '/' + name;
+        return { path: full, isDir: !!(f && f.isDir) };
+      });
+      vscode.postMessage({ type: 'download', items: payload });
     });
 
     // Per-pane New Folder and Delete (above each file table)
@@ -558,21 +662,29 @@
       vscode.postMessage({ type: 'mkdirRemote' });
     });
     document.getElementById('localDelete').addEventListener('click', () => {
-      if (!selectedLocal || selectedLocal === '..') {
-        setFooter('Select a local item to delete');
+      const items = (selectedLocal || []).filter(n => n !== '..');
+      if (!items.length) {
+        setFooter('Select local item(s) to delete');
         return;
       }
-      const f = localFiles.find(x => x.name === selectedLocal);
-      vscode.postMessage({ type: 'requestDeleteLocal', name: selectedLocal, isDir: f ? f.isDir : false });
+      const payload = items.map(name => {
+        const f = localFiles.find(x => x.name === name);
+        return { name, isDir: !!(f && f.isDir) };
+      });
+      vscode.postMessage({ type: 'requestDeleteLocal', items: payload });
     });
     document.getElementById('remoteDelete').addEventListener('click', () => {
-      if (!selectedRemote || selectedRemote === '..') {
-        setFooter('Select a remote item to delete');
+      const items = (selectedRemote || []).filter(n => n !== '..');
+      if (!items.length) {
+        setFooter('Select remote item(s) to delete');
         return;
       }
-      const f = remoteFiles.find(x => x.name === selectedRemote);
-      const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
-      vscode.postMessage({ type: 'requestDeleteRemote', path: remoteFull, name: selectedRemote, isDir: f ? f.isDir : false });
+      const payload = items.map(name => {
+        const f = remoteFiles.find(x => x.name === name);
+        const full = (remotePath === '.' || remotePath === '~' || !remotePath) ? name : remotePath.replace(/\/$/, '') + '/' + name;
+        return { path: full, name, isDir: !!(f && f.isDir) };
+      });
+      vscode.postMessage({ type: 'requestDeleteRemote', items: payload });
     });
 
     // Messages from extension
@@ -587,7 +699,8 @@
         case 'localList':
           localFiles = msg.files || [];
           localPath = msg.path || '';
-          selectedLocal = null;
+          selectedLocal = [];
+          anchorLocal = null;
           updatePathInputs();
           renderLocal();
           break;
@@ -595,7 +708,8 @@
         case 'remoteList':
           remoteFiles = msg.files || [];
           remotePath = msg.path || '';
-          selectedRemote = null;
+          selectedRemote = [];
+          anchorRemote = null;
           updatePathInputs();
           renderRemote();
           break;
@@ -665,15 +779,24 @@
       if (idx >= 0) {
         const name = files[idx].name;
         if (activePane === 'local') {
-          selectedLocal = name;
+          // jump replaces selection (single)
+          selectedLocal = [name];
+          upLocal = false;
+          anchorLocal = name;
           renderLocal();
           const trs = localBody.querySelectorAll('tr');
-          if (trs[idx]) trs[idx].scrollIntoView({ block: 'nearest' });
+          if (trs[idx + (localPath && localPath !== '/' && localPath !== '.' ? 1 : 0)]) {
+            (trs[idx + (localPath && localPath !== '/' && localPath !== '.' ? 1 : 0)] as HTMLElement).scrollIntoView({ block: 'nearest' });
+          }
         } else {
-          selectedRemote = name;
+          selectedRemote = [name];
+          upRemote = false;
+          anchorRemote = name;
           renderRemote();
           const trs = remoteBody.querySelectorAll('tr');
-          if (trs[idx]) trs[idx].scrollIntoView({ block: 'nearest' });
+          if (trs[idx + (remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '~' ? 1 : 0)]) {
+            (trs[idx + (remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '~' ? 1 : 0)] as HTMLElement).scrollIntoView({ block: 'nearest' });
+          }
         }
         setFooter('Jump: ' + jumpBuffer);
       }
@@ -694,35 +817,59 @@
           return;
         }
         e.preventDefault();
-        if (activePane === 'local' && selectedLocal) {
-          if (selectedLocal === '..') {
+        if (activePane === 'local') {
+          const sel = (selectedLocal || []).filter(n => n !== '..');
+          if (upLocal || (selectedLocal && selectedLocal.includes && selectedLocal.includes('..'))) {
             doGoUp('local');
             return;
           }
-          const f = localFiles.find(x => x.name === selectedLocal);
-          if (f && f.isDir) {
-            // Enter on folder = navigate in
-            const newPath = localPath === '/' || localPath === '' ? '/' + selectedLocal : localPath.replace(/\/$/, '') + '/' + selectedLocal;
-            vscode.postMessage({ type: 'cdLocal', path: newPath });
-          } else {
-            // file: upload
-            const fullLocal = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + selectedLocal;
-            vscode.postMessage({ type: 'upload', localPath: fullLocal, isDir: false });
+          if (sel.length === 1) {
+            const name = sel[0];
+            const f = localFiles.find(x => x.name === name);
+            if (f && f.isDir) {
+              // Enter on single folder = navigate in
+              const newPath = localPath === '/' || localPath === '' ? '/' + name : localPath.replace(/\/$/, '') + '/' + name;
+              vscode.postMessage({ type: 'cdLocal', path: newPath });
+            } else {
+              // single file: upload
+              const fullLocal = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + name;
+              vscode.postMessage({ type: 'upload', items: [{ path: fullLocal, isDir: !!(f && f.isDir) }] });
+            }
+          } else if (sel.length > 1) {
+            // multiple: upload all
+            const payload = sel.map(name => {
+              const f = localFiles.find(x => x.name === name);
+              const full = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + name;
+              return { path: full, isDir: !!(f && f.isDir) };
+            });
+            vscode.postMessage({ type: 'upload', items: payload });
           }
-        } else if (activePane === 'remote' && selectedRemote) {
-          if (selectedRemote === '..') {
+        } else if (activePane === 'remote') {
+          const sel = (selectedRemote || []).filter(n => n !== '..');
+          if (upRemote || (selectedRemote && selectedRemote.includes && selectedRemote.includes('..'))) {
             doGoUp('remote');
             return;
           }
-          const f = remoteFiles.find(x => x.name === selectedRemote);
-          if (f && f.isDir) {
-            // Enter on folder = navigate in
-            const newPath = (remotePath === '/' || remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
-            vscode.postMessage({ type: 'cdRemote', path: newPath });
-          } else {
-            // file: download
-            const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
-            vscode.postMessage({ type: 'download', remotePath: remoteFull, isDir: false });
+          if (sel.length === 1) {
+            const name = sel[0];
+            const f = remoteFiles.find(x => x.name === name);
+            if (f && f.isDir) {
+              // Enter on single folder = navigate in
+              const newPath = (remotePath === '/' || remotePath === '.' || remotePath === '~' || !remotePath) ? name : remotePath.replace(/\/$/, '') + '/' + name;
+              vscode.postMessage({ type: 'cdRemote', path: newPath });
+            } else {
+              // single file: download
+              const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? name : remotePath.replace(/\/$/, '') + '/' + name;
+              vscode.postMessage({ type: 'download', items: [{ path: remoteFull, isDir: !!(f && f.isDir) }] });
+            }
+          } else if (sel.length > 1) {
+            // multiple: download all
+            const payload = sel.map(name => {
+              const f = remoteFiles.find(x => x.name === name);
+              const full = (remotePath === '.' || remotePath === '~' || !remotePath) ? name : remotePath.replace(/\/$/, '') + '/' + name;
+              return { path: full, isDir: !!(f && f.isDir) };
+            });
+            vscode.postMessage({ type: 'download', items: payload });
           }
         }
         return;
