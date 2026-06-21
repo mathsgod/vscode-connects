@@ -97,6 +97,39 @@
     font-size: 10px;
     opacity: 0.5;
   }
+  .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .item-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .item-actions {
+    display: none;
+    align-items: center;
+    gap: 2px;
+  }
+  .item:hover .item-actions {
+    display: flex;
+  }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--vscode-foreground);
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .icon-btn:hover {
+    opacity: 1;
+    background: var(--vscode-toolbar-hoverBackground);
+  }
 </style>
 </head>
 <body>
@@ -183,12 +216,31 @@
         for (const h of items) {
           const item = document.createElement('div');
           item.className = 'item' + (h.id === selectedId ? ' selected' : '');
+
+          const main = document.createElement('div');
+          main.className = 'item-main';
           const name = document.createElement('div');
           name.textContent = h.name;
           const detail = document.createElement('div');
           detail.className = 'detail';
           detail.textContent = h.detail;
-          item.append(name, detail);
+          main.append(name, detail);
+
+          const actions = document.createElement('div');
+          actions.className = 'item-actions';
+
+          const sftpBtn = document.createElement('button');
+          sftpBtn.className = 'icon-btn';
+          sftpBtn.title = 'Open SFTP Explorer';
+          sftpBtn.textContent = '🗂️';
+          sftpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            vscode.postMessage({ type: 'openSftp', id: h.id });
+          });
+          actions.appendChild(sftpBtn);
+
+          item.append(main, actions);
+
           item.addEventListener('click', () => {
             selectedId = h.id;
             render();

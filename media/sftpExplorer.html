@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src {{cspSource}} data:; style-src 'unsafe-inline' {{cspSource}}; script-src 'nonce-{{nonce}}';">
+<style>
+  :root {
+    --bg: var(--vscode-editor-background);
+    --fg: var(--vscode-foreground);
+    --panel: var(--vscode-sideBar-background);
+    --border: var(--vscode-panel-border, #444);
+    --hover: var(--vscode-list-hoverBackground);
+    --sel: var(--vscode-list-activeSelectionBackground);
+    --selFg: var(--vscode-list-activeSelectionForeground);
+  }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+    color: var(--fg);
+    background: var(--bg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--vscode-titleBar-activeBackground);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .header .status {
+    opacity: 0.85;
+  }
+  .toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .toolbar button {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .toolbar button:hover { opacity: 0.9; }
+  .panes {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--border);
+  }
+  .pane:last-child { border-right: none; }
+  .pane-header {
+    padding: 4px 8px;
+    background: var(--vscode-sideBarSectionHeader-background);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pathbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .pathbar button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 1px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .pathbar input {
+    flex: 1;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, transparent);
+    padding: 2px 6px;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px;
+  }
+  .file-table {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  td {
+    padding: 3px 6px;
+    border-bottom: 1px solid rgba(128,128,128,0.15);
+    white-space: nowrap;
+  }
+  tr:hover { background: var(--hover); }
+  tr.selected {
+    background: var(--sel);
+    color: var(--selFg);
+  }
+  .name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .icon {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+  }
+  .footer {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    font-size: 11px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .empty {
+    padding: 20px;
+    text-align: center;
+    opacity: 0.6;
+    font-size: 12px;
+  }
+  .splitter {
+    width: 4px;
+    background: var(--border);
+    cursor: col-resize;
+  }
+  .pane-actions {
+    display: flex;
+    gap: 4px;
+    padding: 2px 6px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .pane-actions button {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .queue {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+  .queue-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+  }
+  .queue button {
+    font-size: 10px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .queue-table-wrap {
+    flex: 1 1 auto;
+    overflow: auto;
+    max-height: 65px;
+    border-top: 1px solid rgba(128,128,128,0.15);
+  }
+  .queue table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  .queue th {
+    text-align: left;
+    padding: 2px 4px;
+    font-weight: 600;
+    opacity: 0.7;
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+  }
+  .queue td {
+    padding: 1px 4px;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(128,128,128,0.1);
+  }
+  .queue tr.running { background: #1a3a1a; }
+  .queue tr.failed { background: #3a1a1a; }
+  .queue tr.completed { opacity: 0.6; }
+  .queue tr.killed { opacity: 0.5; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="status" id="status">Connecting...</div>
+    <div>
+      <button id="btnRefresh" title="Refresh both sides">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button id="btnUpload" title="Upload selected local file to current remote folder">↑ Upload</button>
+    <button id="btnDownload" title="Download selected remote file to current local folder">↓ Download</button>
+  </div>
+
+  <div class="panes">
+    <!-- LOCAL -->
+    <div class="pane" id="localPane">
+      <div class="pane-header">Local Site</div>
+      <div class="pathbar">
+        <input id="localPath" spellcheck="false" />
+      </div>
+      <div class="pane-actions">
+        <button id="localMkdir" title="New folder in current local folder">📁 New</button>
+        <button id="localDelete" title="Delete selected local item">🗑 Del</button>
+      </div>
+      <div class="file-table">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 55%">Name</th>
+              <th style="width: 15%">Size</th>
+              <th style="width: 30%">Modified</th>
+            </tr>
+          </thead>
+          <tbody id="localBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REMOTE -->
+    <div class="pane" id="remotePane">
+      <div class="pane-header">Remote Site</div>
+      <div class="pathbar">
+        <input id="remotePath" spellcheck="false" />
+      </div>
+      <div class="pane-actions">
+        <button id="remoteMkdir" title="New folder in current remote folder">📁 New</button>
+        <button id="remoteDelete" title="Delete selected remote item">🗑 Del</button>
+      </div>
+      <div class="file-table">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 48%">Name</th>
+              <th style="width: 14%">Size</th>
+              <th style="width: 22%">Modified</th>
+              <th style="width: 16%">Perms</th>
+            </tr>
+          </thead>
+          <tbody id="remoteBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="queue" id="queueSection" style="display:none;">
+    <div class="queue-header">
+      <span>Queue (<span id="qCount">0</span>)</span>
+      <button id="qPause" title="Pause queue">⏸</button>
+      <button id="qResume" title="Resume queue" style="display:none">▶</button>
+      <button id="qKill" title="Kill queued items">⏹</button>
+      <button id="qClear" title="Clear finished items">Clear</button>
+    </div>
+    <div class="queue-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:16px;"></th>
+            <th>Name</th>
+            <th style="width:50px;">Prog</th>
+            <th style="width:60px;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="qList"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer" id="footer">Ready</div>
+
+  <script nonce="{{nonce}}">
+    const vscode = acquireVsCodeApi();
+
+    let localFiles = [];
+    let remoteFiles = [];
+    let localPath = '';
+    let remotePath = '';
+    let selectedLocal = null;
+    let selectedRemote = null;
+
+    let activePane = 'remote'; // 'local' | 'remote' - which list receives type-to-jump
+    let jumpBuffer = '';
+    let jumpTimer = null;
+
+    const statusEl = document.getElementById('status');
+    const footerEl = document.getElementById('footer');
+    const localBody = document.getElementById('localBody');
+    const remoteBody = document.getElementById('remoteBody');
+    const localPathInput = document.getElementById('localPath');
+    const remotePathInput = document.getElementById('remotePath');
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatPerms(mode) {
+      // Simple octal + rwx style
+      const perms = (mode & 0o777).toString(8).padStart(3, '0');
+      let s = '';
+      const rwx = ['---', '--x', '-w-', '-wx', 'r--', 'r-x', 'rw-', 'rwx'];
+      s += rwx[(mode >> 6) & 7];
+      s += rwx[(mode >> 3) & 7];
+      s += rwx[mode & 7];
+      return perms + ' ' + s;
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function setFooter(text) {
+      footerEl.textContent = text;
+    }
+
+    function renderLocal() {
+      localBody.innerHTML = '';
+      const canGoUp = !!(localPath && localPath !== '/' && localPath !== '.' && localPath !== '');
+      if (canGoUp) {
+        const tr = document.createElement('tr');
+        if (selectedLocal === '..') tr.classList.add('selected');
+        tr.innerHTML = `<td class="name"><span class="icon">📁</span> <span>..</span></td><td></td><td></td>`;
+        tr.addEventListener('click', () => {
+          activePane = 'local';
+          selectedLocal = '..';
+          renderLocal();
+        });
+        tr.addEventListener('dblclick', () => {
+          activePane = 'local';
+          doGoUp('local');
+        });
+        localBody.appendChild(tr);
+      }
+      if (!localFiles.length && !canGoUp) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3" class="empty">No files</td>`;
+        localBody.appendChild(tr);
+        return;
+      }
+      for (const f of localFiles) {
+        const tr = document.createElement('tr');
+        if (f.name === selectedLocal) tr.classList.add('selected');
+
+        const icon = f.isDir ? '📁' : '📄';
+        tr.innerHTML = `
+          <td class="name"><span class="icon">${icon}</span> <span>${escapeHtml(f.name)}</span></td>
+          <td>${f.isDir ? '' : formatSize(f.size)}</td>
+          <td>${formatDate(f.mtime)}</td>
+        `;
+
+        tr.addEventListener('click', () => {
+          activePane = 'local';
+          selectedLocal = f.name;
+          renderLocal();
+        });
+        tr.addEventListener('dblclick', () => {
+          activePane = 'local';
+          if (f.isDir) {
+            const newPath = localPath === '/' || localPath === '' ? '/' + f.name : localPath.replace(/\/$/, '') + '/' + f.name;
+            vscode.postMessage({ type: 'cdLocal', path: newPath });
+          }
+        });
+        localBody.appendChild(tr);
+      }
+    }
+
+    function renderRemote() {
+      remoteBody.innerHTML = '';
+      const canGoUp = !!(remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '' && remotePath !== '~');
+      if (canGoUp) {
+        const tr = document.createElement('tr');
+        if (selectedRemote === '..') tr.classList.add('selected');
+        tr.innerHTML = `<td class="name"><span class="icon">📁</span> <span>..</span></td><td></td><td></td><td></td>`;
+        tr.addEventListener('click', () => {
+          activePane = 'remote';
+          selectedRemote = '..';
+          renderRemote();
+        });
+        tr.addEventListener('dblclick', () => {
+          activePane = 'remote';
+          doGoUp('remote');
+        });
+        remoteBody.appendChild(tr);
+      }
+      if (!remoteFiles.length && !canGoUp) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="empty">No files</td>`;
+        remoteBody.appendChild(tr);
+        return;
+      }
+      for (const f of remoteFiles) {
+        const tr = document.createElement('tr');
+        if (f.name === selectedRemote) tr.classList.add('selected');
+
+        const icon = f.isDir ? '📁' : '📄';
+        tr.innerHTML = `
+          <td class="name"><span class="icon">${icon}</span> <span>${escapeHtml(f.name)}</span></td>
+          <td>${f.isDir ? '' : formatSize(f.size)}</td>
+          <td>${formatDate(f.mtime)}</td>
+          <td><span style="font-family: monospace; font-size: 11px;">${formatPerms(f.mode)}</span></td>
+        `;
+
+        tr.addEventListener('click', () => {
+          activePane = 'remote';
+          selectedRemote = f.name;
+          renderRemote();
+        });
+        tr.addEventListener('dblclick', () => {
+          activePane = 'remote';
+          if (f.isDir) {
+            const newPath = remotePath === '/' || remotePath === '.' ? f.name : remotePath.replace(/\/$/, '') + '/' + f.name;
+            vscode.postMessage({ type: 'cdRemote', path: newPath });
+          } else {
+            vscode.postMessage({ type: 'openRemoteFile', path: remotePath === '.' || remotePath === '~' ? f.name : remotePath.replace(/\/$/, '') + '/' + f.name });
+          }
+        });
+        remoteBody.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function updatePathInputs() {
+      localPathInput.value = localPath || '';
+      remotePathInput.value = remotePath || '';
+    }
+
+    // Path input handlers
+    localPathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        vscode.postMessage({ type: 'cdLocal', path: localPathInput.value.trim() || '.' });
+      }
+    });
+    remotePathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        vscode.postMessage({ type: 'cdRemote', path: remotePathInput.value.trim() || '.' });
+      }
+    });
+
+    function doGoUp(pane) {
+      if (pane === 'local') {
+        if (!localPath || localPath === '.' || localPath === '/') return;
+        const parts = localPath.split('/').filter(Boolean);
+        parts.pop();
+        const up = parts.length ? '/' + parts.join('/') : '/';
+        vscode.postMessage({ type: 'cdLocal', path: up });
+      } else {
+        if (!remotePath || remotePath === '.' || remotePath === '/') return;
+        const parts = remotePath.split('/').filter(Boolean);
+        parts.pop();
+        const up = parts.length ? '/' + parts.join('/') : '/';
+        vscode.postMessage({ type: 'cdRemote', path: up });
+      }
+    }
+
+    // Toolbar actions
+    document.getElementById('btnRefresh').addEventListener('click', () => {
+      vscode.postMessage({ type: 'refresh' });
+    });
+    document.getElementById('btnUpload').addEventListener('click', () => {
+      if (!selectedLocal || selectedLocal === '..') {
+        setFooter('Select a local file first');
+        return;
+      }
+      const f = localFiles.find(x => x.name === selectedLocal);
+      const fullLocal = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + selectedLocal;
+      vscode.postMessage({ type: 'upload', localPath: fullLocal, isDir: !!(f && f.isDir) });
+    });
+    document.getElementById('btnDownload').addEventListener('click', () => {
+      if (!selectedRemote || selectedRemote === '..') {
+        setFooter('Select a remote file first');
+        return;
+      }
+      const f = remoteFiles.find(x => x.name === selectedRemote);
+      const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
+      vscode.postMessage({ type: 'download', remotePath: remoteFull, isDir: !!(f && f.isDir) });
+    });
+
+    // Per-pane New Folder and Delete (above each file table)
+    document.getElementById('localMkdir').addEventListener('click', () => {
+      vscode.postMessage({ type: 'mkdirLocal' });
+    });
+    document.getElementById('remoteMkdir').addEventListener('click', () => {
+      vscode.postMessage({ type: 'mkdirRemote' });
+    });
+    document.getElementById('localDelete').addEventListener('click', () => {
+      if (!selectedLocal || selectedLocal === '..') {
+        setFooter('Select a local item to delete');
+        return;
+      }
+      const f = localFiles.find(x => x.name === selectedLocal);
+      vscode.postMessage({ type: 'requestDeleteLocal', name: selectedLocal, isDir: f ? f.isDir : false });
+    });
+    document.getElementById('remoteDelete').addEventListener('click', () => {
+      if (!selectedRemote || selectedRemote === '..') {
+        setFooter('Select a remote item to delete');
+        return;
+      }
+      const f = remoteFiles.find(x => x.name === selectedRemote);
+      const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
+      vscode.postMessage({ type: 'requestDeleteRemote', path: remoteFull, name: selectedRemote, isDir: f ? f.isDir : false });
+    });
+
+    // Messages from extension
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      switch (msg.type) {
+        case 'connected':
+          setStatus('Connected to ' + (msg.host || ''));
+          setFooter('Connected');
+          break;
+
+        case 'localList':
+          localFiles = msg.files || [];
+          localPath = msg.path || '';
+          selectedLocal = null;
+          updatePathInputs();
+          renderLocal();
+          break;
+
+        case 'remoteList':
+          remoteFiles = msg.files || [];
+          remotePath = msg.path || '';
+          selectedRemote = null;
+          updatePathInputs();
+          renderRemote();
+          break;
+
+        case 'info':
+          setFooter(msg.message || '');
+          break;
+
+        case 'error':
+          setFooter('Error: ' + (msg.message || ''));
+          break;
+
+        case 'queueState':
+          renderQueue(msg.queue || [], !!msg.paused);
+          break;
+      }
+    });
+
+    // Queue UI
+    const queueSection = document.getElementById('queueSection');
+    const qList = document.getElementById('qList');
+    const qCount = document.getElementById('qCount');
+    const qPause = document.getElementById('qPause');
+    const qResume = document.getElementById('qResume');
+    const qKill = document.getElementById('qKill');
+    const qClear = document.getElementById('qClear');
+
+    function renderQueue(q, isPaused) {
+      const items = Array.isArray(q) ? q : [];
+      qCount.textContent = String(items.length);
+      qList.innerHTML = '';
+      if (items.length === 0) {
+        queueSection.style.display = 'none';
+        return;
+      }
+      queueSection.style.display = 'flex';
+      qPause.style.display = isPaused ? 'none' : '';
+      qResume.style.display = isPaused ? '' : 'none';
+      for (const t of items) {
+        const tr = document.createElement('tr');
+        if (t.status) tr.classList.add(t.status);
+        const dir = t.direction === 'upload' ? '↑' : '↓';
+        const name = (t.src || t.dst || '').split(/[\\/]/).pop() || '';
+        const pct = (typeof t.progress === 'number') ? (t.progress + '%') : '';
+        tr.innerHTML = `
+          <td>${dir}</td>
+          <td>${escapeHtml(name)}</td>
+          <td>${pct}</td>
+          <td>${t.status || ''}</td>
+        `;
+        if (t.status === 'failed' && t.error) tr.title = t.error;
+        qList.appendChild(tr);
+      }
+    }
+
+    qPause.addEventListener('click', () => vscode.postMessage({ type: 'queuePause' }));
+    qResume.addEventListener('click', () => vscode.postMessage({ type: 'queueResume' }));
+    qKill.addEventListener('click', () => vscode.postMessage({ type: 'queueKill' }));
+    if (qClear) qClear.addEventListener('click', () => vscode.postMessage({ type: 'queueClear' }));
+
+    // Type-to-jump: type letters to select first item starting with that prefix in the active pane
+    function doJump() {
+      const files = activePane === 'local' ? localFiles : remoteFiles;
+      if (!files || !files.length || !jumpBuffer) return;
+      const target = jumpBuffer.toLowerCase();
+      const idx = files.findIndex(f => f.name.toLowerCase().startsWith(target));
+      if (idx >= 0) {
+        const name = files[idx].name;
+        if (activePane === 'local') {
+          selectedLocal = name;
+          renderLocal();
+          const trs = localBody.querySelectorAll('tr');
+          if (trs[idx]) trs[idx].scrollIntoView({ block: 'nearest' });
+        } else {
+          selectedRemote = name;
+          renderRemote();
+          const trs = remoteBody.querySelectorAll('tr');
+          if (trs[idx]) trs[idx].scrollIntoView({ block: 'nearest' });
+        }
+        setFooter('Jump: ' + jumpBuffer);
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'Escape') {
+        jumpBuffer = '';
+        clearTimeout(jumpTimer);
+        setFooter('');
+        return;
+      }
+      if (e.key === 'Enter') {
+        // If focus is on a path input, let its own handler do cd navigation
+        const activeEl = document.activeElement;
+        if (activeEl === localPathInput || activeEl === remotePathInput) {
+          return;
+        }
+        e.preventDefault();
+        if (activePane === 'local' && selectedLocal) {
+          if (selectedLocal === '..') {
+            doGoUp('local');
+            return;
+          }
+          const f = localFiles.find(x => x.name === selectedLocal);
+          if (f && f.isDir) {
+            // Enter on folder = navigate in
+            const newPath = localPath === '/' || localPath === '' ? '/' + selectedLocal : localPath.replace(/\/$/, '') + '/' + selectedLocal;
+            vscode.postMessage({ type: 'cdLocal', path: newPath });
+          } else {
+            // file: upload
+            const fullLocal = (localPath ? localPath.replace(/\/$/, '') + '/' : '') + selectedLocal;
+            vscode.postMessage({ type: 'upload', localPath: fullLocal, isDir: false });
+          }
+        } else if (activePane === 'remote' && selectedRemote) {
+          if (selectedRemote === '..') {
+            doGoUp('remote');
+            return;
+          }
+          const f = remoteFiles.find(x => x.name === selectedRemote);
+          if (f && f.isDir) {
+            // Enter on folder = navigate in
+            const newPath = (remotePath === '/' || remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
+            vscode.postMessage({ type: 'cdRemote', path: newPath });
+          } else {
+            // file: download
+            const remoteFull = (remotePath === '.' || remotePath === '~' || !remotePath) ? selectedRemote : remotePath.replace(/\/$/, '') + '/' + selectedRemote;
+            vscode.postMessage({ type: 'download', remotePath: remoteFull, isDir: false });
+          }
+        }
+        return;
+      }
+      // printable chars for quick find (letters, digits, some symbols)
+      if (e.key.length === 1 && /[\w.\- ]/.test(e.key)) {
+        jumpBuffer += e.key;
+        clearTimeout(jumpTimer);
+        jumpTimer = setTimeout(() => {
+          jumpBuffer = '';
+          setFooter('');
+        }, 900);
+        doJump();
+        // do not preventDefault so that path inputs still work if focused; but for list it's fine
+      }
+    });
+
+    // Also set active pane when clicking the pane area itself
+    document.getElementById('localPane').addEventListener('click', () => { activePane = 'local'; });
+    document.getElementById('remotePane').addEventListener('click', () => { activePane = 'remote'; });
+
+    // Initial handshake
+    vscode.postMessage({ type: 'ready' });
+  </script>
+</body>
+</html>

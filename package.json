@@ -94,6 +94,12 @@
         "title": "Import Config",
         "category": "VSCode Connect",
         "icon": "$(repo-pull)"
+      },
+      {
+        "command": "vscodeConnect.openSftpExplorer",
+        "title": "Open SFTP Explorer",
+        "category": "VSCode Connect",
+        "icon": "$(folder-opened)"
       }
     ],
     "menus": {
@@ -135,6 +141,10 @@
         },
         {
           "command": "vscodeConnect.connect",
+          "when": "false"
+        },
+        {
+          "command": "vscodeConnect.openSftpExplorer",
           "when": "false"
         }
       ]

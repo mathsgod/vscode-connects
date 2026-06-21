@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { openHostForm } from './hostForm';
 import { HostsViewProvider } from './hostsView';
 import { openSshTerminal } from './sshTerminal';
+import { openSftpExplorer } from './sftpExplorer';
 import { HostStore } from './storage';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -68,6 +69,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('vscodeConnect.importConfig', () => {
       void view.importConfig();
+    }),
+
+    vscode.commands.registerCommand('vscodeConnect.openSftpExplorer', (arg: unknown) => {
+      const entry = resolveEntry(arg);
+      if (entry) {
+        openSftpExplorer(context.extensionUri, entry, context);
+      }
     })
   );
 }

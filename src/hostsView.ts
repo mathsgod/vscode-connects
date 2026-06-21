@@ -68,6 +68,11 @@ export class HostsViewProvider implements vscode.WebviewViewProvider {
         case 'import':
           await this.importConfig();
           break;
+        case 'openSftp':
+          if (msg.id) {
+            vscode.commands.executeCommand('vscodeConnect.openSftpExplorer', String(msg.id));
+          }
+          break;
       }
     });
   }
