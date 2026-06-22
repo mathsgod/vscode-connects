@@ -330,6 +330,7 @@
   <div class="footer" id="footer">Ready</div>
 
   <script nonce="{{nonce}}">
+    console.log('peter 1');
     const vscode = acquireVsCodeApi();
 
     let localFiles = [];
@@ -785,8 +786,9 @@
           anchorLocal = name;
           renderLocal();
           const trs = localBody.querySelectorAll('tr');
-          if (trs[idx + (localPath && localPath !== '/' && localPath !== '.' ? 1 : 0)]) {
-            (trs[idx + (localPath && localPath !== '/' && localPath !== '.' ? 1 : 0)] as HTMLElement).scrollIntoView({ block: 'nearest' });
+          const localTarget = trs[idx + (localPath && localPath !== '/' && localPath !== '.' ? 1 : 0)];
+          if (localTarget) {
+            localTarget.scrollIntoView({ block: 'nearest' });
           }
         } else {
           selectedRemote = [name];
@@ -794,8 +796,9 @@
           anchorRemote = name;
           renderRemote();
           const trs = remoteBody.querySelectorAll('tr');
-          if (trs[idx + (remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '~' ? 1 : 0)]) {
-            (trs[idx + (remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '~' ? 1 : 0)] as HTMLElement).scrollIntoView({ block: 'nearest' });
+          const remoteTarget = trs[idx + (remotePath && remotePath !== '/' && remotePath !== '.' && remotePath !== '~' ? 1 : 0)];
+          if (remoteTarget) {
+            remoteTarget.scrollIntoView({ block: 'nearest' });
           }
         }
         setFooter('Jump: ' + jumpBuffer);
