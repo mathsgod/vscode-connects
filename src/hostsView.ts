@@ -193,7 +193,7 @@ export class HostsViewProvider implements vscode.WebviewViewProvider {
       const uri = await vscode.window.showOpenDialog({
         title: 'Import from OpenSSH config',
         canSelectMany: false,
-        filters: { 'SSH config': ['config'] },
+        filters: { 'All Files': ['*'] },
         defaultUri: vscode.Uri.file(defaultPath),
         openLabel: 'Import',
       });
